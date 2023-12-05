@@ -1,7 +1,9 @@
 const express = require('express');
 const UserSchema = require('../models/Users.model.js');
-const { StatusCodes: { ACCEPTED, BAD_GATEWAY, NOT_ACCEPTABLE } } = require('http-status-codes')
-
+const { StatusCodes: { ACCEPTED, BAD_GATEWAY, NOT_ACCEPTABLE, NOT_FOUND, OK } } = require('http-status-codes');
+const { hashPassword, isPasswordValid } = require("../utils/HashPassword.js");
+const jwt = require('jsonwebtoken');
+const { generateToken } = require('../utils/JwtToken.js');
 
 const registerUser = async (request, response, next) => {
     try {
@@ -12,8 +14,9 @@ const registerUser = async (request, response, next) => {
         const fullName = firstName + " " + lastName;
 
         if (!userName || !userEmail) {
+            const hashedPassword = await hashPassword(password);
 
-            const newUser = await UserSchema.create({ firstName, lastName, fullName, email, mobile, username, password });
+            const newUser = await UserSchema.create({ firstName, lastName, fullName, email, mobile, username, password: hashedPassword });
 
             return response.status(ACCEPTED).json({
                 error: false, message: `Registered Successfully !`, data: {
@@ -34,18 +37,41 @@ const registerUser = async (request, response, next) => {
     }
 }
 
-const loginUser = async () => {
+const loginUser = async (request, response, next) => {
     try {
-        const { email, username, password} = request.body
+        const { username, password } = request.body;
+
+        const isUserAvailable = await UserSchema.findOne({ username });
+
+        if (!isUserAvailable) {
+            return response.status(NOT_FOUND).json({ error: true, message: "User Not Found" })
+        }
+
+        const isPasswordCorrect = await isPasswordValid(password, isUserAvailable.password);
+        
+        const token=await generateToken(isUserAvailable._id, isUserAvailable.username, isUserAvailable.email)
+
+        !isPasswordCorrect
+            ?
+            response.status(BAD_GATEWAY).json({ error: true, message: 'Invalid Password' })
+            :
+            response.status(OK).json({
+                error: false, message: "Logged In", token , data: {
+                        userId: isUserAvailable._id,
+                        username: isUserAvailable.username,
+                        email: isUserAvailable.email
+                    }
+            })
 
 
 
     } catch (error) {
-
+        next(error)
     }
 }
 
 
 module.exports = {
-    registerUser
+    registerUser,
+    loginUser
 }
