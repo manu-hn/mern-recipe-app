@@ -48,20 +48,23 @@ const loginUser = async (request, response, next) => {
         }
 
         const isPasswordCorrect = await isPasswordValid(password, isUserAvailable.password);
-        
-        const token=await generateToken(isUserAvailable._id, isUserAvailable.username, isUserAvailable.email)
 
-        !isPasswordCorrect
+        const token = await generateToken(isUserAvailable._id, isUserAvailable.username, isUserAvailable.email)
+
+        
+        isPasswordCorrect
             ?
-            response.status(BAD_GATEWAY).json({ error: true, message: 'Invalid Password' })
-            :
             response.status(OK).json({
-                error: false, message: "Logged In", token , data: {
-                        userId: isUserAvailable._id,
-                        username: isUserAvailable.username,
-                        email: isUserAvailable.email
-                    }
+                error: false, message: "Logged In", token, data: {
+                    userId: isUserAvailable._id,
+                    username: isUserAvailable.username,
+                    email: isUserAvailable.email
+                }
             })
+        :
+        response.status(NOT_ACCEPTABLE).json({ error: true, message: 'Invalid Password' })
+
+
 
 
 
